@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>to-do list</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            margin: 0px 20px;
+        }
+
+        .container {
+            max-width: 450px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .input-container {
+            display: flex;
+        }
+
+        .task-list {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        .task-list li {
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            border: 1px solid #ccc; /* Border around each todo item */
+            padding: 10px; /* Padding inside each todo item */
+            border-radius: 5px; /* Rounded corners for the todo item */
+        }
+
+        .task-list li label {
+            margin-left: 5px;
+            text-decoration: none; /* Default to no decoration */
+            transition: color 0.3s; /* Add transition for smooth color change */
+        }
+
+        .task-list li input[type="checkbox"] {
+            cursor: pointer;
+        }
+
+        .task-list li input[type="checkbox"]:checked + label {
+            text-decoration: line-through; /* Strike out text when checkbox is checked */
+            color: #888; /* Change text color to a lighter shade */
+        }
+
+        .task-list li button {
+            margin-left: auto;
+            cursor: pointer;
+        }
+
+        button {
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+
+        #addTask {
+            margin-left: auto;
+        }
+
+        /* Focus styles */
+        :focus {
+            outline: 2px solid #000; /* Black outline for better visibility in light mode */
+            outline-offset: 2px; /* Add some space between the element and the outline */
+        }
+
+        .dark-mode :focus {
+            outline-color: #fff; /* White outline for better visibility in dark mode */
+        }
+
+        /* Dark mode styles */
+        body.dark-mode {
+            background-color: #333;
+            color: #eee;
+        }
+
+        body.dark-mode .task-list li .credits input[type="checkbox"]:checked + label {
+            color: #bbb; /* Change text color to a lighter shade in dark mode */
+        }
+
+        /* Light mode link color */
+        a {
+            color: #007bff; /* Default link color */
+        }
+
+        /* Dark mode link color */
+        body.dark-mode a {
+            color: #64a6e7; /* Adjusted link color for dark mode */
+        }
+
+        .toggle-mode {
+            margin-left: auto;
+            cursor: pointer;
+        }
+
+        /* Some light text scaling based on screen size */
+        @media screen and (max-width: 600px) {
+            body {
+                font-size: 14px; /* Decrease font size for smaller screens */
+            }
+        }
+
+        @media screen and (min-width: 1200px) {
+            body {
+                font-size: 18px; /* Increase font size for larger screens */
+            }
+        }
+
+        .credits {
+            padding: 20px;
+            font-size: 14px;
+            text-align: center; /* Center text horizontally */
+            margin-top: auto; /* Push footer to the bottom */
+        }
+    </style>
+</head>
+<body class="dark-mode">
+    <header>
+        <h1>to-do list</h1>
+        <div class="toggle-mode" onclick="toggleMode()" tabindex="0" onkeydown="handleModeToggleKeyPress(event)" aria-label="Toggle dark mode" role="button" aria-pressed="false">
+            <i class="fas" id="darkModeIcon"></i>
+        </div>
+    </header>
+    <div class="container">
+        <div class="input-container">
+            <input type="text" id="taskInput" placeholder="enter task" onkeydown="handleKeyPress(event)">
+            <button id="addTask" onclick="addTask()">add task</button>
+        </div>
+        <ul class="task-list" id="taskList">
+            <!-- Tasks will be added here -->
+        </ul>
+        <div class="credits">
+            <p>made for you, by me ❤️</p>
+            <p>find the code at <a href="https://github.com/rfloarea/todo" target="_blank">github</a></p>
+        </div>
+    </div>
+
+    <script>
+        let tasks = JSON.parse(localStorage.getItem('tasks')) || []; // Create our tasks array in local storage
+
+        function renderTasks() {
+            const taskList = document.getElementById('taskList');
+            taskList.innerHTML = '';
+
+            tasks.forEach((task, index) => {
+                const listItem = document.createElement('li');
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = task.done; // Set checkbox state based on task
+                checkbox.id = `taskCheckbox_${index}`; // Assign unique ID to checkbox
+                checkbox.setAttribute('tabindex', 0); // Make checkbox focusable
+                checkbox.setAttribute('aria-checked', checkbox.checked.toString()); // Set aria-checked attribute
+                checkbox.onchange = () => {
+                    handleCheckboxChange(checkbox); // Call handleCheckboxChange function when checkbox state changes
+                    markTaskDone(index);
+                }
+                checkbox.onkeydown = (event) => handleCheckboxKeyPress(event, index); // Handle keyboard events
+                
+                const taskLabel = document.createElement('label');
+                taskLabel.textContent = task.text; // Use label to display task text
+                taskLabel.htmlFor = `taskCheckbox_${index}`; // Associate label with checkbox
+                taskLabel.setAttribute('tabindex', -1); // Make label programmatically focusable
+                taskLabel.setAttribute('role', 'checkbox'); // Add ARIA role
+                taskLabel.setAttribute('aria-checked', checkbox.checked.toString()); // Set aria-checked attribute for screenreaders
+                
+                listItem.appendChild(checkbox);
+                listItem.appendChild(taskLabel);
+                
+                const deleteButton = document.createElement('button');
+                deleteButton.classList.add('delete-button'); // Add a class to style the button
+                const icon = document.createElement('i'); // Create an icon element (i tag)
+                icon.classList.add('fas', 'fa-trash-alt'); // Add Font Awesome classes for the trash icon
+                deleteButton.appendChild(icon); // Append icon to the button
+                deleteButton.onclick = () => deleteTask(index);
+                
+                listItem.appendChild(deleteButton);
+                taskList.appendChild(listItem);
+            });
+        }
+
+        function addTask() {
+            const taskInput = document.getElementById('taskInput');
+            const taskText = taskInput.value.trim(); // Get our input and remove any white space
+
+            if (taskText) {
+                tasks.push({ text: taskText, done: false }); // Add to local storage
+                saveTasks();
+                renderTasks();
+                taskInput.value = ''; // Reset our input field to empty
+            } else {
+                alert('Please enter a valid task.'); // Some light form validation
+            }
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') { // Keyboard functionality on input field
+                addTask();
+            }
+        }
+
+        function markTaskDone(index) {
+            tasks[index].done = !tasks[index].done; // Toggle "done" property value of task
+            saveTasks();
+            renderTasks();
+        }
+
+        function deleteTask(index) {
+            tasks.splice(index, 1); // Access our task via its index in local storage
+            saveTasks();
+            renderTasks();
+        }
+
+        function handleCheckboxKeyPress(event, index) {
+            if (event.key === ' ' || event.key === 'Enter') { // If space key or enter key is pressed
+                event.preventDefault(); // Prevent default space bar action (scrolling)
+                markTaskDone(index); // Toggle checkbox state
+            }
+        }
+
+        function saveTasks() {
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+        }
+        
+        let lastFocusedElement = null; // Store the last focused element so we can return to it with tab
+
+        // Event listener for the "keydown" event
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                // If "Escape" key is pressed, store the currently focused element
+                lastFocusedElement = document.activeElement;
+                document.activeElement.blur(); // Remove focus from the currently focused element
+            } else if (event.key === 'Tab' && lastFocusedElement !== null) {
+                // If "Tab" key is pressed and lastFocusedElement is not null,
+                // focus the last focused element again
+                lastFocusedElement.focus();
+                lastFocusedElement = null; // Clear lastFocusedElement to avoid focus loop
+                event.preventDefault(); // Prevent default tab behavior
+            }
+        });
+
+        let isDarkMode = true; // Set initial state to dark mode
+
+        window.onload = function() {
+            const body = document.body;
+            const icon = document.getElementById('darkModeIcon');
+
+            if (isDarkMode) {
+                body.classList.add('dark-mode');
+                icon.classList.remove('fa-moon'); // Remove moon icon class
+                icon.classList.add('fa-sun'); // Add sun icon class
+            } else {
+                body.classList.remove('dark-mode');
+                icon.classList.remove('fa-sun'); // Remove sun icon class
+                icon.classList.add('fa-moon'); // Add moon icon class
+            }
+        };
+
+        function toggleMode() {
+            isDarkMode = !isDarkMode;
+            const body = document.body;
+            const icon = document.getElementById('darkModeIcon');
+
+            if (isDarkMode) {
+                body.classList.add('dark-mode');
+                icon.classList.remove('fa-moon'); // Remove moon icon class
+                icon.classList.add('fa-sun'); // Add sun icon class
+            } else {
+                body.classList.remove('dark-mode');
+                icon.classList.remove('fa-sun'); // Remove sun icon class
+                icon.classList.add('fa-moon'); // Add moon icon class
+            }
+        }
+
+        function handleModeToggleKeyPress(event) { // To enable keyboard use for toggle
+            if (event.key === 'Enter') {
+                toggleMode();
+            }
+        }
+
+        renderTasks(); // Initial rendering of tasks
+    </script>
+</body>
+</html>
